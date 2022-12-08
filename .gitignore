@@ -1,0 +1,9 @@
+results/
+pytorch/
+utils/__pycache__
+
+# hidden files
+.DS_Store
+.idea
+.mypy_cache
+__pycache__
