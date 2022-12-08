@@ -115,7 +115,6 @@ class AnomalyClassifier(LightningModule):
         _, pred = out.max(1)
 
         loss = self.criterion(out, target)
-        # accumulate and return metrics for logging
         acc = self.train_acc(pred, target)
         f1 = self.train_f1(pred, target)
         # auroc = self.train_auroc(pred, target)
