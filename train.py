@@ -1,23 +1,24 @@
+from __future__ import annotations
+
 import argparse
 import os
 from pprint import pprint
+from typing import Any
 
-import timm
+import timm  # type: ignore
 import torch
 import torch.nn as nn
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.utilities.seed import seed_everything
 from torch.utils.data import DataLoader
-
-# from torchmetrics.functional import accuracy, auroc, f1_score
-from torchmetrics import AUROC, Accuracy, F1Score
-from torchvision.datasets import ImageFolder
+from torchmetrics import Accuracy, F1Score
+from torchvision.datasets import ImageFolder  # type: ignore
 
 from options import get_args
 from utils.utils import ImageTransform
 
-# solver settings
+# Settings
 OPT = "adam"  # adam, sgd
 WEIGHT_DECAY = 0.00001
 MOMENTUM = 0.9  # only when OPT is sgd
@@ -27,6 +28,7 @@ LR_DECAY_RATE = 0.1
 LR_STEP_SIZE = 5  # only when LR_SCHEDULER is step
 LR_STEP_MILESTONES = [10, 15]  # only when LR_SCHEDULER is multistep
 
+# get arguments
 args = get_args()
 
 
@@ -36,8 +38,8 @@ class CreateDataloaders(LightningDataModule):
     def __init__(
         self,
         root_dir: str,
-        img_size: tuple = (224, 224),
-        batch_size: int = args.batch_size,
+        img_size: tuple[int, int] = (224, 224),
+        batch_size: int = 16,
         num_workers: int = 10,
     ):
         super().__init__()
@@ -57,7 +59,7 @@ class CreateDataloaders(LightningDataModule):
         self.classes = self.train_dataset.classes
         self.class_to_idx = self.train_dataset.class_to_idx
 
-    def train_dataloader(self) -> DataLoader:
+    def train_dataloader(self) -> DataLoader:  # type: ignore
         dataloader = DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -67,7 +69,7 @@ class CreateDataloaders(LightningDataModule):
         )
         return dataloader
 
-    def val_dataloader(self) -> DataLoader:
+    def val_dataloader(self) -> DataLoader:  # type: ignore
         dataloader = DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
@@ -78,6 +80,7 @@ class CreateDataloaders(LightningDataModule):
         return dataloader
 
 
+# pylint: disable=arguments-differ
 class AnomalyClassifier(LightningModule):
     """Defines the model and the training steps"""
 
@@ -85,10 +88,10 @@ class AnomalyClassifier(LightningModule):
         self,
         model_name: str = "resnet18",
         pretrained: bool = False,
-        num_classes: int = None,
+        num_classes: int | None = None,
     ):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters()  # type: ignore
 
         # model definition
         self.model = timm.create_model(
@@ -99,17 +102,14 @@ class AnomalyClassifier(LightningModule):
         # metircs initialization
         self.train_acc = Accuracy()
         self.train_f1 = F1Score(num_classes=num_classes, average="weighted")
-        # self.train_auroc = AUROC(
-        #     num_classes=num_classes, pos_label=1, average="weighted"
-        # )
+
         self.val_acc = Accuracy()
         self.val_f1 = F1Score(num_classes=num_classes, average="weighted")
-        # self.val_auroc = AUROC(num_classes=num_classes, pos_label=1, average="weighted")
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> Any:
         return self.model(x)
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch: torch.Tensor, _):  # type: ignore
         x, target = batch
         out = self(x)
         _, pred = out.max(1)
@@ -117,14 +117,12 @@ class AnomalyClassifier(LightningModule):
         loss = self.criterion(out, target)
         acc = self.train_acc(pred, target)
         f1 = self.train_f1(pred, target)
-        # auroc = self.train_auroc(pred, target)
 
         self.log_dict(
             {
                 "train/loss": loss,
                 "train/acc": acc,
                 "train/f1": f1,
-                # "train/auroc": auroc,
             },
             prog_bar=True,
             on_epoch=True,
@@ -132,7 +130,7 @@ class AnomalyClassifier(LightningModule):
         )
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, _):  # type: ignore
         x, target = batch
         out = self(x)
         loss = self.criterion(out, target)
@@ -140,19 +138,12 @@ class AnomalyClassifier(LightningModule):
         _, pred = out.max(1)
         acc = self.val_acc(pred, target)
         f1 = self.val_f1(pred, target)
-        # auroc = self.val_auroc(pred, target)
-
-        # # just accumulate metrics
-        # self.val_acc.update(pred, target)
-        # self.val_f1.update(pred, target)
-        # self.val_auroc.update(pred, target)
 
         self.log_dict(
             {
                 "val/loss": loss,
                 "val/acc": acc,
                 "val/f1": f1,
-                # "val/auroc": auroc,
             },
             prog_bar=True,
             on_epoch=True,
@@ -161,76 +152,26 @@ class AnomalyClassifier(LightningModule):
 
         return loss
 
-    # def training_epoch_end(self, outputs) -> None:
-    #     train_accuracy = self.train_acc.compute()
-    #     train_f1 = self.train_f1.compute()
-    #     train_auroc = self.train_auroc.compute()
-
-    #     # log metrics
-    #     self.log_dict(
-    #         {
-    #             "train/epoch_acc": train_accuracy,
-    #             "train/epoch_f1": train_f1,
-    #             "train/epoch_auroc": train_auroc,
-    #         }
-    #     )
-
-    #     print(
-    #         f"\nTraining Accuracy: {train_accuracy: .4f}, F1: {train_f1: .4f}, AUROC: {train_auroc: .4f}"
-    #     )
-
-    #     # reset metrics
-    #     self.train_acc.reset()
-    #     self.train_f1.reset()
-    #     self.train_auroc.reset()
-
-    # def validation_epoch_end(self, outputs) -> None:
-    #     # compute metrics
-    #     val_loss = torch.Tensor(outputs).mean()
-    #     val_accuracy = self.val_acc.compute()
-    #     val_f1 = self.val_f1.compute()
-    #     val_auroc = self.val_auroc.compute()
-
-    #     # log metrics
-    #     self.log_dict(
-    #         {
-    #             "val/loss": val_loss,
-    #             "val/epoch_acc": val_accuracy,
-    #             "val/epoch_f1": val_f1,
-    #             "val/epoch_auroc": val_auroc,
-    #         }
-    #     )
-
-    #     print(
-    #         f"\nValidation Accuracy: {val_accuracy: .4f}, F1: {val_f1: .4f}, AUROC: {val_auroc: .4f}"
-    #     )
-
-    #     # reset metrics
-    #     self.val_acc.reset()
-    #     self.val_f1.reset()
-    #     self.val_auroc.reset()
-    #     return self.log_dict
-
-    def configure_optimizers(self):
+    def configure_optimizers(self):  # type: ignore
         optimizer = get_optimizer(self.parameters())
         lr_scheduler_config = get_lr_scheduler_config(optimizer)
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler_config}
 
 
-def get_optimizer(parameters) -> torch.optim.Optimizer:
+def get_optimizer(parameters) -> torch.optim.Optimizer:  # type: ignore
     if OPT == "adam":
         optimizer = torch.optim.Adam(parameters, lr=BASE_LR, weight_decay=WEIGHT_DECAY)
     elif OPT == "sgd":
         optimizer = torch.optim.SGD(
             parameters, lr=BASE_LR, weight_decay=WEIGHT_DECAY, momentum=MOMENTUM
-        )
+        )  # type: ignore
     else:
         raise NotImplementedError()
 
     return optimizer
 
 
-def get_lr_scheduler_config(optimizer: torch.optim.Optimizer) -> dict:
+def get_lr_scheduler_config(optimizer: torch.optim.Optimizer) -> dict:  # type: ignore
     if LR_SCHEDULER == "step":
         scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAY_RATE
@@ -243,7 +184,7 @@ def get_lr_scheduler_config(optimizer: torch.optim.Optimizer) -> dict:
     elif LR_SCHEDULER == "multistep":
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
             optimizer, milestones=LR_STEP_MILESTONES, gamma=LR_DECAY_RATE
-        )
+        )  # type: ignore
         lr_scheduler_config = {
             "scheduler": scheduler,
             "interval": "epoch",
@@ -252,7 +193,7 @@ def get_lr_scheduler_config(optimizer: torch.optim.Optimizer) -> dict:
     elif LR_SCHEDULER == "reduce_on_plateau":
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="max", factor=0.1, patience=10, threshold=0.0001
-        )
+        )  # type: ignore
         lr_scheduler_config = {
             "scheduler": scheduler,
             "monitor": "train/loss",
@@ -265,36 +206,30 @@ def get_lr_scheduler_config(optimizer: torch.optim.Optimizer) -> dict:
     return lr_scheduler_config
 
 
-def get_basic_callbacks() -> list:
+def get_basic_callbacks() -> list:  # type: ignore
     lr_callback = LearningRateMonitor(logging_interval="epoch")
 
     ckpt_callback_acc = ModelCheckpoint(
-        filename="epoch{epoch:03d}-val_acc{val/acc: .3f}",
+        filename="epoch{epoch:03d}-val_acc-{val/acc: .3f}",
         monitor="val/acc",
         auto_insert_metric_name=False,
+        save_weights_only=True,
         save_top_k=3,
         mode="max",
     )
     ckpt_callback_f1 = ModelCheckpoint(
-        filename="epoch{epoch:03d}-val_f1{val/f1: .4f}",
+        filename="epoch{epoch:03d}-val_f1-{val/f1: .4f}",
         monitor="val/f1",
         auto_insert_metric_name=False,
+        save_weights_only=True,
         save_top_k=3,
         mode="max",
     )
-    # ckpt_callback_auroc = ModelCheckpoint(
-    #     filename="epoch{epoch:03d}-val_auroc{val/auroc: .4f}",
-    #     monitor="val/auroc",
-    #     auto_insert_metric_name=False,
-    #     save_top_k=3,
-    #     mode="max",
-    # )
 
     return [ckpt_callback_acc, ckpt_callback_f1, lr_callback]
-    # return [ckpt_callback_acc, lr_callback]
 
 
-def get_gpu_settings(gpu_ids: list[int], n_gpu: int):
+def get_gpu_settings(gpu_ids: list[int], n_gpu: int):  # type: ignore
     """Get gpu settings for pytorch-lightning trainer:
     https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#trainer-flags
     Args:
@@ -320,24 +255,24 @@ def get_gpu_settings(gpu_ids: list[int], n_gpu: int):
     return "gpu", devices, strategy
 
 
-def get_trainer(args: argparse.Namespace) -> Trainer:
+def get_trainer(arg: argparse.Namespace) -> Trainer:
     callbacks = get_basic_callbacks()
-    accelerator, devices, strategy = get_gpu_settings(args.gpu_ids, args.n_gpu)
-    trainer = Trainer(
-        max_epochs=args.epochs,
+    accelerator, devices, strategy = get_gpu_settings(arg.gpu_ids, arg.n_gpu)
+    my_trainer = Trainer(
+        max_epochs=arg.epochs,
         callbacks=callbacks,
-        default_root_dir=args.outdir,
+        default_root_dir=arg.outdir,
         accelerator=accelerator,
         devices=devices,
         strategy=strategy,
         logger=True,
         deterministic=True,
         check_val_every_n_epoch=1,
-        # limit_train_batches=0.05,
-        # limit_val_batches=0.05,
+        limit_train_batches=0.05,
+        limit_val_batches=0.05,
         fast_dev_run=args.debug,
     )
-    return trainer
+    return my_trainer
 
 
 if __name__ == "__main__":

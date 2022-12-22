@@ -1,4 +1,5 @@
 results/
+dump/
 pytorch/
 utils/__pycache__
 

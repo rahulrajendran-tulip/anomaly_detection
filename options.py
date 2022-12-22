@@ -18,15 +18,15 @@ def get_args() -> argparse.Namespace:
         "--model-name", "-m", type=str, default="resnet18", help="Model name (timm)"
     )
     parser.add_argument(
-        "--img-size", "-i", type=tuple, default=(224, 224), help="Input size of image"
+        "--img-size", "-i", default=(224, 224), help="Input size of image"
     )
     parser.add_argument(
-        "--epochs", "-e", type=int, default=150, help="Number of training epochs"
+        "--epochs", "-e", type=int, default=1, help="Number of training epochs"
     )
     parser.add_argument(
         "--save-interval", "-s", type=int, default=1, help="Save interval (epoch)"
     )
-    parser.add_argument("--batch-size", "-b", type=int, default=16, help="Batch size")
+    parser.add_argument("--batch-size", "-b", type=int, default=8, help="Batch size")
 
     parser.add_argument(
         "--num-workers", "-w", type=int, default=10, help="Number of workers"
