@@ -274,7 +274,7 @@ def get_trainer(arg: argparse.Namespace) -> Trainer:
         check_val_every_n_epoch=1,
         limit_train_batches=0.15,
         limit_val_batches=0.15,
-        fast_dev_run=args.debug,
+        fast_dev_run=arg.debug,
     )
     return my_trainer
 
@@ -293,7 +293,6 @@ if __name__ == "__main__":
     )
     # print(ModelSummary(model))
     trainer = get_trainer(args)
-
     print("Args:")
     pprint(args.__dict__)
     print("Training classes:")

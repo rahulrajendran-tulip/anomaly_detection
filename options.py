@@ -21,7 +21,7 @@ def get_args() -> argparse.Namespace:
         "--img-size", "-i", default=(224, 224), help="Input size of image"
     )
     parser.add_argument(
-        "--epochs", "-e", type=int, default=5, help="Number of training epochs"
+        "--epochs", "-e", type=int, default=2, help="Number of training epochs"
     )
     parser.add_argument(
         "--save-interval", "-s", type=int, default=1, help="Save interval (epoch)"
@@ -29,7 +29,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", "-b", type=int, default=8, help="Batch size")
 
     parser.add_argument(
-        "--num-workers", "-w", type=int, default=10, help="Number of workers"
+        "--num-workers", "-w", type=int, default=6, help="Number of workers"
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
