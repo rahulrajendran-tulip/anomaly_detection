@@ -21,7 +21,7 @@ def get_args() -> argparse.Namespace:
         "--img-size", "-i", default=(224, 224), help="Input size of image"
     )
     parser.add_argument(
-        "--epochs", "-e", type=int, default=1, help="Number of training epochs"
+        "--epochs", "-e", type=int, default=5, help="Number of training epochs"
     )
     parser.add_argument(
         "--save-interval", "-s", type=int, default=1, help="Save interval (epoch)"

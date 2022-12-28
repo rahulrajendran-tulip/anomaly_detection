@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pytorch_lightning.loggers import CSVLogger, TensorBoardLogger
 from pytorch_lightning.utilities.seed import seed_everything
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy, F1Score
@@ -258,18 +259,21 @@ def get_gpu_settings(gpu_ids: list[int], n_gpu: int):  # type: ignore
 def get_trainer(arg: argparse.Namespace) -> Trainer:
     callbacks = get_basic_callbacks()
     accelerator, devices, strategy = get_gpu_settings(arg.gpu_ids, arg.n_gpu)
+    csv_logger = CSVLogger(arg.outdir, name="csvlogger")
+    tb_logger = TensorBoardLogger(save_dir=arg.outdir, name="tb_logger")
     my_trainer = Trainer(
         max_epochs=arg.epochs,
+        logger=[csv_logger, tb_logger],
         callbacks=callbacks,
         default_root_dir=arg.outdir,
         accelerator=accelerator,
         devices=devices,
         strategy=strategy,
-        logger=True,
+        # logger=True,
         deterministic=True,
         check_val_every_n_epoch=1,
-        limit_train_batches=0.05,
-        limit_val_batches=0.05,
+        limit_train_batches=0.15,
+        limit_val_batches=0.15,
         fast_dev_run=args.debug,
     )
     return my_trainer
